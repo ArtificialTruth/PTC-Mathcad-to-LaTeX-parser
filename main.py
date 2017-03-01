@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 import xml.etree.ElementTree as ElemTree  # Import the XML ElementTree module aliased as ET
 import io  # Import used for more advanced file writing
 import os  # Used for file name handling
-from symbol_parser import symbol_parser  # Import function which formats special characters
+import numpy
+from symbol_parser import symbol_parser  # Import function which formats special charecters
 from tkinter.filedialog import askopenfilename  # Tkinter libs or selecting files in OS file picker
 from tkinter import Tk, Frame, Button, Label, StringVar, Entry  # Used for the GUI
-
 
 class ParseGUI(object):
     """Class used for the handling of the GUI
@@ -80,7 +81,7 @@ class MathcadXMLParser(object):
 
         self.ml = "{http://schemas.mathsoft.com/math30}"  # Variable for namespaces as URI, used in prefixes
         self.ws = "{http://schemas.mathsoft.com/worksheet30}"
-        self.debug = False  # Toggle debug messages
+        self.debug = True  # Toggle debug messages
 
         if not os.path.exists('ParsedLatexFile'):  # If this folder doesn't exist
             os.makedirs('ParsedLatexFile')  # Create it
@@ -92,6 +93,8 @@ class MathcadXMLParser(object):
         self.start_latex_doc = "\\documentclass[10pt,a4paper]{report}\n\\usepackage[utf8]{inputenc}\n\\usepackage{a" \
                                "msmath}\n\\usepackage{amsfonts}\n\\usepackage{amssymb}\n\\begin{document}\n\\noindent\n"
         self.end_latex_doc = "\end{document}"
+
+        self.matrix_array = []  # Array to use for multiple values in matrixes
 
         self.i = 0  # Counter
 
@@ -108,27 +111,40 @@ class MathcadXMLParser(object):
         elem.tag = elem.tag.replace(self.ml, "")  # Only leave operator name left without prefix
 
         if elem.tag == "apply":  # If current Element's tag is apply
-            if len(elem) == 3:  # Either there's 3 parts (normal mathematical expression)
+            # We need two cases; One for apply tag which includes a operator, and everything else
+            # The first will always be the operator, if there's one
+            if self.debug:  # Only prints debug messages if debug = True
+                print("Apply tag found")
+
+            # Either there's a operator
+            if bool(elem[0]) is False and elem[0].text is None:  # Checks if
                 if self.debug:  # Only prints debug messages if debug = True
-                    print("Apply tag found")
+                    print("Apply tag includes a operator")
 
-                val1 = self.math_reader(elem[1])  # Call this method again with 2nd child again to get first value
-                val2 = self.math_reader(elem[2])  # Call this method again with 3rd child again to get second value
-                # Return the formatted result (by calling math_formatter), to the original caller of this method
-                return self.math_formatter(elem[0].tag, val1, val2)  # Sends the operator and the two values
+                if len(elem) == 3:  # Either there's 3 parts (normal mathemathical expression)
+                    print("elem[0].tag", elem[0].tag)
+                    print("elem[1]", elem[1])
+                    print("operator part")
+                    val1 = self.math_reader(elem[1])  # Call this method again with 2nd child again to get first value
+                    val2 = self.math_reader(elem[2])  # Call this method again with 3rd child again to get second value
+                    # Return the formatted result (by calling math_formatter), to the original caller of this method
+                    return self.math_formatter(elem[0].tag, val1, val2)  # Sends the operator and the two values
 
-            elif len(elem) == 2:  # Used for other operators where there's only "two" parts
-                val1 = self.math_reader(elem[1])  # Call this method again to get the first result
-                return self.math_formatter(elem[0].tag, val1)  # Get first child's tag which is the operator
+                elif len(elem) == 2:  # Used for other operators where there's only "two" parts
+                    print("no operator part")
+                    val1 = self.math_reader(elem[1])  # Call this method again to get the first result
+                    return self.math_formatter(elem[0].tag, val1)  # Get first child's tag which is the operator
 
-        elif elem.tag == "parens":  # Handle parentheses
+            # Or there's no operator - this is the case for ex cos(x) - currently hardcoded for "parens"
+            # ToDo: Make a more general way of handling apply tags?
+            elif bool(elem[0]) or elem[0].text is not None:
+                val1 = self.math_reader(elem[0])  # Call this method again with 2nd child again to get first value
+                val2 = self.math_reader(elem[1])  # Call this method again with 3rd child again to get second value
+                return self.math_formatter("nothing", val1, val2)
+
+        elif elem.tag == "parens":  # Handle parenteses
             val1 = self.math_reader(elem[0])
-            return self.math_formatter("parens", val1)  # Only 1 value between parentheses
-
-        elif elem.tag == "real":  # Current tag is real, aka just a normal number
-            if self.debug:
-                print("Number found:", elem.text)
-            return elem.text  # Simply return the value as string
+            return self.math_formatter("parens", val1)  # Only 1 value between parenteses
 
         elif elem.tag == "provenance":  # Interesting Mathcad structure handled here
             return self.math_reader(elem[len(elem)-1])  # Simply call this method again with the last child element
@@ -138,12 +154,41 @@ class MathcadXMLParser(object):
                 print("Text found:", elem.text)
             return symbol_parser(elem.text)  # Call external function with text
 
-        elif elem.tag == "define":  # Current tag is "define" equal sign
+        elif elem.tag == "result" or elem.tag == "real":  # Current tag is used for pure numbers
             if self.debug:
-                print("Defined expressions found.")
-            # Define works like normal equal operator
+                print("Number found:", elem.text)
+            return elem.text  # Simply return the value as string
+
+        # Current tag is some kind of equal sign
+        elif elem.tag == "eval" or elem.tag == "equal" or elem.tag == "define":
+            if self.debug:
+                print("A type of equal expression found.")
+            # Eval works like normal equal operator
             return self.math_formatter("equal", self.math_reader(elem[0]), self.math_reader(elem[1]))
 
+        elif elem.tag == "vectorize":  # Current tag is a vector notation
+            if self.debug:
+                print("Vector found.")
+            return self.math_formatter("vectorize", self.math_reader(elem[0]))
+
+        elif elem.tag == "matrix":  # Currrent tag is a matrix
+            if self.debug:
+                print("Matrix found.")
+
+            # Run through every entity in the matrix, and add it to a list
+            for entity in elem:
+                # Convert every entity in to string, for supporting advanced expressions in matrix
+                self.matrix_array.append(str(self.math_reader(entity)))  # Recursive, to handling everything :D
+
+            numpy_matrix_array = numpy.array(self.matrix_array)  # Convert from list to a numpy array for manipulation
+            array_dimensions = (int(elem.attrib["rows"]), int(elem.attrib["cols"]))  # Grap the ints from the attribute
+            numpy_matrix_array = numpy.reshape(numpy_matrix_array, array_dimensions)  # Transform from flat array
+            if array_dimensions[0] > 1 and array_dimensions[1] > 1:  # Only transpose if there's more than 1 col or row
+                numpy_matrix_array = numpy.transpose(numpy_matrix_array)  # Flip array around to fit LaTeX structure
+
+            self.matrix_array = []  # Reset matrix array
+            return self.math_formatter("matrix", numpy_matrix_array, array_dimensions)  # Send array and the dimensons
+            
         elif elem.tag == "placeholder":  # Current tag is just a placeholder
             if self.debug:
                 print("Empty placeholder found.")
@@ -175,7 +220,7 @@ class MathcadXMLParser(object):
         return text
 
     def math_formatter(self, operator, x, y=None):  # Define the value of y
-        """LaTeX math formatter method
+        """LaTeX math formatter metod
 
         :param operator: A math operator or similar
         :param x: The first part of the expression
@@ -200,7 +245,7 @@ class MathcadXMLParser(object):
             elif operator == "div":
                 return "\\frac{" + x + "}{" + y + "}"  # Double dash due to escape charecters in Python
 
-            elif operator == "equal":
+            elif operator == "eval" or operator == "equal" or operator == "define":
                 return x + " = " + y
 
             elif operator == "pow":
@@ -227,6 +272,31 @@ class MathcadXMLParser(object):
             elif operator == "or":
                 return x + " \\lor " + y
 
+            elif operator == "matrix":
+                string = "\\begin{pmatrix}\n"
+                i2 = 1
+                # Rows and cols in the matrix, taken from the y tuple
+                rows = y[0]
+                cols = y[1]
+
+                # We have 2 counters; one to keep track of current row (i), one for col (i2)
+                for i in range(0, rows):
+                    for entity in x[i, :]:
+                        if i2 == cols:  # RNS checkmate
+                            string = string + entity
+                        else:
+                            string = string + entity + " & "
+                        i2 += 1
+                    i2 = 1
+                    string += "\\\\\n"
+
+                string += "\\end{pmatrix}"
+
+                return string
+
+            elif operator == "nothing":
+                return x + y
+                
         else:  # Else, there is only 1 value
             if self.debug:
                 print("No y given")
@@ -243,6 +313,9 @@ class MathcadXMLParser(object):
             elif operator == "neg":
                 return "-" + x
 
+            elif operator == "vectorize":
+                return "\\vec{" + x + "}"
+
     def main(self):
         """Method for controlling file writing
 
@@ -258,17 +331,18 @@ class MathcadXMLParser(object):
                 if child[0].tag == self.ws + "math":  # Math region
                     if self.debug:
                         print("Type: Math region.")
-                    # Write result of the region by calling function which sends the current element
-                    self.tex_file.write("$ " + self.math_reader(child[0][0]) + " $\\\\\n")  # LaTeX formatting
+                    # Write result of the region by calling fuction which sends the current element
+                    self.tex_file.write("\\begin{align}\n" + self.math_reader(child[0][0]) + "\n\\end{align}\\\\\n")
 
                 elif child[0].tag == self.ws + "text":  # Handle pure text regions
                     if self.debug:
                         print("Type: Text region.")
-                    # Write result of the region by calling function which sends the current element
+                    # Write result of the region by calling fuction which sends the current element
                     self.tex_file.write(self.text_reader(child[0]) + "\\\\\n")
 
             except TypeError:  # Catch the most common error
-                print("Unsupported expressions found, could not parse region", self.i)
+                print("Unsupported expessions found OR error occured, could not parse region", self.i)
+            self.matrix_array = []  # Reset matrix array
 
         self.tex_file.write(self.end_latex_doc)  # Write end of LaTeX document
 
