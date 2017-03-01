@@ -1,6 +1,6 @@
 # coding=UTF-8
 
-# Define a few special characters in a dictionary
+# Define a few special charecters in a dictonary
 symbol_dictionary = {'π': '\\pi',
                      'α': '\\alpha',
                      '': '\\epsilon',
@@ -10,7 +10,14 @@ symbol_dictionary = {'π': '\\pi',
                      'µ': '\\mu',
                      '∆': '\\Delta',
                      'ε': '\\varepsilon',
-                     'ϕ': '\\Phi'}
+                     'ϕ': '\\Phi',
+                     'æ': '\\ae',
+                     'Æ': '\\AE',
+                     'ø': '\\oe',
+                     'Ø': '\\OE',
+                     'å': '\\aa',
+                     'Å': '\\AA'}
+
 
 
 def symbol_parser(symbol):
@@ -19,7 +26,8 @@ def symbol_parser(symbol):
     :param symbol: A string which is the given symbol that needs to be checked
     :return: Formatted LaTeX symbol or what was given
     """
-    if symbol in symbol_dictionary:  # Check if the symbol is in our dictionary
-        return symbol_dictionary[symbol]  # Return the corresponding symbol from the dictionary
+    # ToDo: Write for-loop that goes through every charecter in the string (symbol)
+    if symbol in symbol_dictionary:  # Check if the symbol is in our dictonary
+        return symbol_dictionary[symbol]  # Return the corresponding symbol from the dictonary
     else:
         return symbol  # Else, just return what was sent
