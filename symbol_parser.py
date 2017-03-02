@@ -16,7 +16,9 @@ symbol_dictionary = {'π': '\\pi',
                      'ø': '\\oe',
                      'Ø': '\\OE',
                      'å': '\\aa',
-                     'Å': '\\AA'}
+                     'Å': '\\AA',
+                     '⇕': '\\Updownarrow',
+                     '⇔': '\\Leftrightarrow'}  # ToDo: Add more of these...
 
 
 
