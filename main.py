@@ -2,7 +2,8 @@
 import xml.etree.ElementTree as ElemTree  # Import the XML ElementTree module aliased as ET
 import io  # Import used for more advanced file writing
 import os  # Used for file name handling
-import numpy
+import numpy  # Used for arrays, and more advanced math manipulation
+import base64  # Used for reading base64 encoded pictures
 from symbol_parser import symbol_parser  # Import function which formats special charecters
 from tkinter.filedialog import askopenfilename  # Tkinter libs or selecting files in OS file picker
 from tkinter import Tk, Frame, Button, Label, StringVar, Entry  # Used for the GUI
@@ -81,7 +82,6 @@ class MathcadXMLParser(object):
 
         self.ml = "{http://schemas.mathsoft.com/math30}"  # Variable for namespaces as URI, used in prefixes
         self.ws = "{http://schemas.mathsoft.com/worksheet30}"
-        self.debug = True  # Toggle debug messages
 
         if not os.path.exists('ParsedLatexFile'):  # If this folder doesn't exist
             os.makedirs('ParsedLatexFile')  # Create it
@@ -92,12 +92,14 @@ class MathcadXMLParser(object):
         # Standard LaTeX document info as strings
         self.start_latex_doc = "\\documentclass[10pt,a4paper]{report}\n\\usepackage[utf8]{inputenc}\n" \
                                "\\usepackage[T1]{fontenc}\n\\usepackage{amsmath}\n\\usepackage{amsfonts}\n" \
-                               "\\usepackage{amssymb}\n\\begin{document}\n\\noindent\n"
+                               "\\usepackage{amssymb}\n\\usepackage{graphicx}\n\\begin{document}\n\\noindent\n"
         self.end_latex_doc = "\end{document}"
 
         self.matrix_array = []  # Array to use for multiple values in matrixes
 
         self.i = 0  # Counter
+
+        self.debug = False  # Toggle debug messages
 
         if math_tree_ok:  # Only run if file isn't corrupted
             self.main()  # Run main method
@@ -117,35 +119,43 @@ class MathcadXMLParser(object):
             if self.debug:  # Only prints debug messages if debug = True
                 print("Apply tag found")
 
-            # Either there's a operator
+            # Either there's a operator (2 or 3 childs, first element is always the operator)
             if bool(elem[0]) is False and elem[0].text is None:  # Checks if the elem has children and doesn't have text
                 if self.debug:  # Only prints debug messages if debug = True
                     print("Apply tag includes a operator")
 
                 if len(elem) == 3:  # Either there's 3 parts (normal mathemathical expression)
-                    print("elem[0].tag", elem[0].tag)
-                    print("elem[1]", elem[1])
-                    print("operator part")
+                    if self.debug:
+                        print("len(elem)", len(elem))
                     val1 = self.math_reader(elem[1])  # Call this method again with 2nd child again to get first value
                     val2 = self.math_reader(elem[2])  # Call this method again with 3rd child again to get second value
                     # Return the formatted result (by calling math_formatter), to the original caller of this method
                     return self.latex_formatter(elem[0].tag, val1, val2)  # Sends the operator and the two values
 
                 elif len(elem) == 2:  # Used for other operators where there's only "two" parts
-                    print("no operator part")
+                    if self.debug:
+                        print("len(elem)", len(elem))
                     val1 = self.math_reader(elem[1])  # Call this method again to get the first result
                     return self.latex_formatter(elem[0].tag, val1)  # Get first child's tag which is the operator
 
-            # Or there's no operator - this is the case for ex cos(x) - currently hardcoded for "parens"
             # ToDo: Make a more general way of handling apply tags?
-            elif bool(elem[0]) or elem[0].text is not None:
-                val1 = self.math_reader(elem[0])  # Call this method again with 2nd child again to get first value
-                val2 = self.math_reader(elem[1])  # Call this method again with 3rd child again to get second value
-                return self.latex_formatter("nothing", val1, val2)
+            # Or there's no operator - this is the case for ex cos(x)
+            # One of the 2 childs, must have children too, or text
+            elif bool(elem[0]) or bool(elem[1]) or elem[0].text or elem[1].text is not None:
+                val1 = self.math_reader(elem[0])
+                val2 = self.math_reader(elem[1])
+                return self.latex_formatter(elem.tag, val1, val2)
 
+        # ToDo?: The following else tag checks, are only for non-operator tags, elements with no children or text
         elif elem.tag == "parens":  # Handle parenteses
-            val1 = self.math_reader(elem[0])
-            return self.latex_formatter(elem.tag, val1)  # Only 1 value between parenteses
+            return self.latex_formatter(elem.tag, self.math_reader(elem[0]))  # Only 1 value between parenteses
+
+        # Current tag is some kind of equal sign
+        elif elem.tag == "eval" or elem.tag == "define":
+            if self.debug:
+                print("A type of equal expression found.")
+            # Eval works like normal equal operator
+            return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
 
         elif elem.tag == "provenance":  # Interesting Mathcad structure handled here
             return self.math_reader(elem[len(elem)-1])  # Simply call this method again with the last child element
@@ -155,23 +165,16 @@ class MathcadXMLParser(object):
                 print("Text found:", elem.text)
             return self.latex_formatter(elem.tag, elem)  # Call external function with text
 
-
         elif elem.tag == "real":  # Current is a real number
             if self.debug:
                 print("Number found:", elem.text)
             return elem.text  # Simply return the value as string
 
-        elif elem.tag == "result":  # Current tag is used with equal signs
+        # Result is used with equal signs, boundVars is used for special variables
+        elif elem.tag == "result" or elem.tag == "boundVars":
             if self.debug:
                 print("Result found.")
             return elem[0].text  # Simply return the value as string
-
-        # Current tag is some kind of equal sign
-        elif elem.tag == "eval" or elem.tag == "equal" or elem.tag == "define":
-            if self.debug:
-                print("A type of equal expression found.")
-            # Eval works like normal equal operator
-            return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
 
         elif elem.tag == "vectorize":  # Current tag is a vector notation
             if self.debug:
@@ -200,6 +203,11 @@ class MathcadXMLParser(object):
             if self.debug:
                 print("Empty placeholder found.")
             return " "  # Return space
+
+        elif elem.tag == "lambda":
+            # lambda is used for both derivative and integral (+ more?!).
+            # Therefore the latex_formatter must handle it, we can't go backwards in elements
+            return elem
 
         else:  # For unsupported tags
             print("Error, non-supported tag found at region", self.i)  # Print the problematic region number
@@ -238,6 +246,18 @@ class MathcadXMLParser(object):
             return self.text_reader(elem[0], True)
 
         return text
+
+    def picture_reader(self, elem):
+        image_id = int(elem[0].attrib["item-idref"])  # Grap the image ID from the elements attributes
+        image_base64_data = self.math_tree[4][image_id-1].text  # Find the image data in the binaryContent part
+        image_base64_data = image_base64_data.encode(encoding='UTF-8')  # Encode string as bytes instead
+        filename = self.filename + "_" + str(image_id) + ".png"
+
+        # Open a new file for writing, name it the filename_id
+        with open("ParsedLatexFile/" + filename, "wb") as imagefile:  # Open the file, and close it afterwards
+            imagefile.write(base64.decodebytes(image_base64_data))  # Write the decoded base64 bytes to the file
+
+        return "\\includegraphics{" + filename + "}"
 
     def latex_formatter(self, operator, x, y=None):  # Define the value of y
         """LaTeX math formatter metod
@@ -300,10 +320,10 @@ class MathcadXMLParser(object):
                 cols = y[1]
 
                 # We have 2 counters; one to keep track of current row (i), one for col (i2)
-                for i in range(0, rows):
-                    for entity in x[i, :]:
+                for i in range(0, rows):  # Run this loop the amount of rows there exists
+                    for entity in x[i, :]:  # For each value in the i'nte row
                         if i2 == cols:  # RNS checkmate
-                            string = string + entity
+                            string += entity
                         else:
                             string = string + entity + " & "
                         i2 += 1
@@ -311,10 +331,9 @@ class MathcadXMLParser(object):
                     string += "\\\\\n"
 
                 string += "\\end{pmatrix}"
-
                 return string
 
-            elif operator == "nothing":
+            elif operator == "apply":  # If one of the childs are just a piece of text, simply return a merged string
                 return x + y
 
             else:
@@ -345,6 +364,12 @@ class MathcadXMLParser(object):
             elif operator == "vectorize":
                 return "\\vec{" + x + "}"
 
+            elif operator == "derivative":  # For derivative notation
+                return "\\frac{d}{d" + self.math_reader(x[0]) + "}" + self.math_reader(x[1])
+
+            elif operator == "integral":  # For integrals. ToDo: Add support for bestemt integral
+                return "\\int " + self.math_reader(x[1]) + " d" + self.math_reader(x[0])
+
             else:
                 return "Unhandled tag (y given) :("
 
@@ -370,12 +395,15 @@ class MathcadXMLParser(object):
                 elif child[0].tag == self.ws + "text":  # Handle pure text regions
                     if self.debug:
                         print("Type: Text region.")
-                    # Write result of the region by calling fuction which sends the current element
                     self.tex_file.write(self.text_reader(child[0]) + "\\\\\n")
+
+                elif child[0].tag == self.ws + "picture":  # Handle pure picture regions
+                    if self.debug:
+                        print("Type: Picture region.")
+                    self.tex_file.write(self.picture_reader(child[0]) + "\\\\\n")
 
             except TypeError:  # Catch the most common error
                 print("Unsupported expessions found OR error occured, could not parse region", self.i)
-            self.matrix_array = []  # Reset matrix array
 
         self.tex_file.write(self.end_latex_doc)  # Write end of LaTeX document
 
