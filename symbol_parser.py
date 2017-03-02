@@ -11,12 +11,12 @@ symbol_dictionary = {'π': '\\pi',
                      '∆': '\\Delta',
                      'ε': '\\varepsilon',
                      'ϕ': '\\Phi',
-                     'æ': '\\ae',
-                     'Æ': '\\AE',
-                     'ø': '\\oe',
-                     'Ø': '\\OE',
-                     'å': '\\aa',
-                     'Å': '\\AA',
+                     'æ': '\\textit{æ}',
+                     'Æ': '\\textit{Æ}',
+                     'ø': '\\textit{ø}',
+                     'Ø': '\\textit{Ø}',
+                     'å': '\\textit{å}',
+                     'Å': '\\textit{Å}',
                      '⇕': '\\Updownarrow',
                      '⇔': '\\Leftrightarrow'}  # ToDo: Add more of these...
 
@@ -28,8 +28,11 @@ def symbol_parser(symbol):
     :param symbol: A string which is the given symbol that needs to be checked
     :return: Formatted LaTeX symbol or what was given
     """
-    # ToDo: Write for-loop that goes through every charecter in the string (symbol)
-    if symbol in symbol_dictionary:  # Check if the symbol is in our dictonary
-        return symbol_dictionary[symbol]  # Return the corresponding symbol from the dictonary
-    else:
-        return symbol  # Else, just return what was sent
+
+    for key in symbol_dictionary:  # Check entire dictionary
+        try:  # Try to replace the given symbol
+            symbol = symbol.replace(key, symbol_dictionary[key])
+        except KeyError:  # If it fails, just skip it
+            pass
+
+    return symbol  # Return the parsed symbol
