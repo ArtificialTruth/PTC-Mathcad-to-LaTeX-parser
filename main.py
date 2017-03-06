@@ -135,7 +135,7 @@ class MathcadXMLParser(object):
                 elif len(elem) == 2:  # Used for other operators where there's only "two" parts
                     if self.debug:
                         print("len(elem)", len(elem))
-                    val1 = self.math_reader(elem[1])  # Call this method again to get the first result
+                    val1 = self.math_reader(elem[1])  # Call this method again, skip the operator tag elem
                     return self.latex_formatter(elem[0].tag, val1)  # Get first child's tag which is the operator
 
             # ToDo: Make a more general way of handling apply tags?
@@ -171,7 +171,8 @@ class MathcadXMLParser(object):
             return elem.text  # Simply return the value as string
 
         # Result is used with equal signs, boundVars is used for special variables
-        elif elem.tag == "result" or elem.tag == "boundVars":
+        # degree is used for n'te degree derivatives
+        elif elem.tag == "result" or elem.tag == "boundVars" or elem.tag == "degree":
             if self.debug:
                 print("Result found.")
             return elem[0].text  # Simply return the value as string
@@ -204,9 +205,10 @@ class MathcadXMLParser(object):
                 print("Empty placeholder found.")
             return " "  # Return space
 
-        elif elem.tag == "lambda":
+        elif elem.tag == "lambda" or elem.tag == "bounds":
             # lambda is used for both derivative and integral (+ more?!).
-            # Therefore the latex_formatter must handle it, we can't go backwards in elements
+            # bounds is used for integral with limits
+            # Therefore the latex_formatter must handle it, we can't go backwards in elements?
             return elem
 
         else:  # For unsupported tags
@@ -336,6 +338,16 @@ class MathcadXMLParser(object):
             elif operator == "apply":  # If one of the childs are just a piece of text, simply return a merged string
                 return x + y
 
+            elif operator == "integral":  # For integrals with limits
+                lim_a = self.math_reader(y[0])
+                lim_b = self.math_reader(y[1])
+                var = self.math_reader(x[0])
+                func = self.math_reader(x[1])
+                return "\\int_{" + lim_a + "}^{" + lim_b + "} " + func + " d" + var
+
+            elif operator == "derivative":  # For n'te derivative notation
+                return "\\frac{d^" + y + "}{d" + self.math_reader(x[0]) + "^" + y + "}" + self.math_reader(x[1])
+
             else:
                 return "Unhandled tag (y given) :("
                 
@@ -367,8 +379,10 @@ class MathcadXMLParser(object):
             elif operator == "derivative":  # For derivative notation
                 return "\\frac{d}{d" + self.math_reader(x[0]) + "}" + self.math_reader(x[1])
 
-            elif operator == "integral":  # For integrals. ToDo: Add support for bestemt integral
-                return "\\int " + self.math_reader(x[1]) + " d" + self.math_reader(x[0])
+            elif operator == "integral":  # For integrals.
+                var = self.math_reader(x[0])
+                func = self.math_reader(x[1])
+                return "\\int " + func + " d" + var
 
             else:
                 return "Unhandled tag (y given) :("
