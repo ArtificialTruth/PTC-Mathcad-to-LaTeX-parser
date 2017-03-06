@@ -4,12 +4,14 @@ import io  # Import used for more advanced file writing
 import os  # Used for file name handling
 import numpy  # Used for arrays, and more advanced math manipulation
 import base64  # Used for reading base64 encoded pictures
-from symbol_parser import symbol_parser  # Import function which formats special charecters
 from tkinter.filedialog import askopenfilename  # Tkinter libs or selecting files in OS file picker
 from tkinter import Tk, Frame, Button, Label, StringVar, Entry  # Used for the GUI
+# Other files
+from symbol_parser import symbol_parser  # Import function which formats special charecters
+
 
 class ParseGUI(object):
-    """Class used for the handling of the GUI
+    """Class used for the GUI
     The object parameter is the root widget for the Tkinter GUI
     """
     def __init__(self, master):
@@ -105,9 +107,14 @@ class MathcadXMLParser(object):
             self.main()  # Run main method
 
     def math_reader(self, elem):
-        """Main reader method, used for ElementTree reading.
-
-        Recursive method for efficiency
+        """Method for getting the math out of the XML file
+        
+        This method is used for reading the XML file (the ElementTree).
+        Generally speaking this method gathers the data, the
+        latex_formatter method needs, in order to format the data into LaTeX.
+        Recursive method for efficiency and simplicity.
+        
+        This method is used for math Mathcad regions.
         :param elem: A ElementTree
         :return: Full LaTeX formatted math expressions
         """
@@ -218,6 +225,7 @@ class MathcadXMLParser(object):
     def text_reader(self, elem, special_char=False):
         """Pure text formatter method
 
+        This method is used for text Mathcad regions.
         :param elem: The ElementTree that contains text
         :param special_char:
         :return: Formatted text with escape chars
@@ -250,6 +258,12 @@ class MathcadXMLParser(object):
         return text
 
     def picture_reader(self, elem):
+        """Method for reading binary picture data
+
+        This method converts the desired picture from base64 data to a .png image
+        :param elem: The picture region as a ElementTree
+        :return: The LaTeX code including the image file
+        """
         image_id = int(elem[0].attrib["item-idref"])  # Grap the image ID from the elements attributes
         image_base64_data = self.math_tree[4][image_id-1].text  # Find the image data in the binaryContent part
         image_base64_data = image_base64_data.encode(encoding='UTF-8')  # Encode string as bytes instead
@@ -262,8 +276,11 @@ class MathcadXMLParser(object):
         return "\\includegraphics{" + filename + "}"
 
     def latex_formatter(self, operator, x, y=None):  # Define the value of y
-        """LaTeX math formatter metod
-
+        """LaTeX math syntax formatter metod
+        
+        This method takes in the data math_reader() has found in the XML file,
+        and formats it into LaTeX expressions.
+        
         :param operator: A math operator or similar
         :param x: The first part of the expression
         :param y: The last part of the expression - Default value: None
