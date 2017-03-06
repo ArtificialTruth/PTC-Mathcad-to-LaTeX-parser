@@ -13,6 +13,6 @@ https://www.gnu.org/licenses/gpl.html
 5. Click some buttons in the GUI
 6. Pray that all your desired math is supported
 
-View the LaTeX file with a editor, or generate a pdf.
+View the generated LaTeX file with a editor, or generate a pdf.
 I can recommend http://www.xm1math.net/texmaker/, which works on Windows, MacOsX and Linux.  
 To be documented...
