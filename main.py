@@ -222,7 +222,7 @@ class MathcadXMLParser(object):
             print("Error, non-supported tag found at region", self.i)  # Print the problematic region number
             print("Current Elem.tag:", elem.tag)  # Debug message
 
-    def text_reader(self, elem, special_char=False):
+    def text_reader(self, elem):
         """Pure text formatter method
 
         This method is used for text Mathcad regions.
@@ -232,28 +232,79 @@ class MathcadXMLParser(object):
         """
         text = ""  # Set default values
         i = 1
+        i2 = 1
 
         if self.debug:
             print("Type: Text region.")
 
-        # Two cases; Either it's normal text
-        if bool(elem[0]) is False:  # Check if the element has children
-            for paragraph in elem:  # For each paragraph, print a new line
-                i += 1  # Counter to handle for-loop
+        for paragraph in elem:  # For each paragraph, in the text region
+            i += 1
+            if bool(paragraph) is True:  # Check if the paragraph has children
+                i2 += 1
+                for text_object in paragraph:  # Run through every item in the tree
+
+                    """ToDo: Don't add newlines in this forloop (unless there's only 1 child in paragraph), just add
+                    # the things in one long ass line"""
+                    # To handle the "f" element that should be on the same line as the inline math, we have two cases.
+                    # Either the element has a "region" with math
+                    if paragraph.find(self.ws + "region") is not None:
+                        if text_object.tag == self.ws + "region":
+                            text += paragraph.text  # Grap the text infront of the inline math
+                            text += " $ " + self.math_reader(paragraph[0][0][0]) + " $ "
+
+                        elif text_object.tag == self.ws + "f":
+
+                            if bool(text_object) is True:
+                                if bool(text_object[0]) is False:  # Check if the element have a <sp/> child
+                                    print("spaces?", text_object[0].text)
+                                    if i2 <= len(elem):
+                                        text += text_object[0].text + " \\\\\n"  # The <inlineAttr> text
+                                    else:
+                                        text += text_object[0].text + " \\\\"
+
+                                elif bool(text_object[0]) is True:  # The element has a <sp/> child
+                                    text += " \n"
+
+                            else:
+                                if i2 <= len(elem):  # For every paragraph that isn't the last
+                                    # family="Mathcad UniMath" symbols
+                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\\n"
+                                else:
+                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\"
+
+                    # Or it doesn't have a region with math.
+                    else:
+                        """
+                        if text_object.tag == self.ws + "region":
+                            text += paragraph.text  # Grap the text infront of the inline math
+                            text += " $ " + self.math_reader(paragraph[0][0][0]) + " $ "
+                        """
+                        if text_object.tag == self.ws + "f":
+
+                            if bool(text_object) is False:  # Check if the element don't have children
+                                if i2 <= len(elem):  # For every paragraph that isn't the last
+                                    # family="Mathcad UniMath" symbols
+                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\\n"
+                                else:
+                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\"
+
+                            elif bool(text_object) is True:
+                                print("spaces?", text_object[0].text)
+                                if bool(text_object[0]) is False:  # The element don't have children
+                                    if i2 <= len(elem):
+                                        text += text_object[0].text + " \\\\\n"  # The <inlineAttr> text
+                                    else:
+                                        text += text_object[0].text + " \\\\"
+                                else:  # The element has a <sp/> child
+                                    text += " "
+
+                    print(text_object)
+
+            elif bool(paragraph) is False:
                 if i <= len(elem):  # For every paragraph that isn't the last
-                    if special_char is False:
-                        text += paragraph.text + "\\\\" + "\n"
-                    else:
-                        # Lookup the special char. Special chars are handled as math regions
-                        text += "$ " + symbol_parser(paragraph.text) + " $ \\\\" + "\n"
+                    text += paragraph.text + " \\\\\n"
                 else:  # For the last paragraph (no newline)
-                    if special_char is False:
-                        text += paragraph.text
-                    else:
-                        text += "$ " + symbol_parser(paragraph.text) + " $"
-        # Or it's Mathcad UniMath
-        else:
-            return self.text_reader(elem[0], True)
+                    text += paragraph.text + " \\\\"
 
         return text
 
@@ -426,7 +477,7 @@ class MathcadXMLParser(object):
                 elif child[0].tag == self.ws + "text":  # Handle pure text regions
                     if self.debug:
                         print("Type: Text region.")
-                    self.tex_file.write(self.text_reader(child[0]) + "\\\\\n")
+                    self.tex_file.write(self.text_reader(child[0]) + "\n")
 
                 elif child[0].tag == self.ws + "picture":  # Handle pure picture regions
                     if self.debug:
