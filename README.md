@@ -5,11 +5,11 @@ Only tested on Mathcad 15 *.xmcd* files, the structure is probably different for
 This program is distributed under the terms of the GNU General Public License.  
 https://www.gnu.org/licenses/gpl.html
 
-## Quick guide
+## Quick (and dirty) guide
 1. Install Anaconda for Python 3.x at https://www.continuum.io/downloads
 2. Reboot?
-3. Download all files
-4. Doubleclick main.py (or run the file from CMD)
+3. Git clone (Download all files)
+4. Doubleclick main.py (or run the file from shell)
 5. Click some buttons in the GUI
 6. Pray that all your desired math is supported
 
