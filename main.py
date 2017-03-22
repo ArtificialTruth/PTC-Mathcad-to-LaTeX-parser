@@ -461,7 +461,7 @@ class MathcadXMLParser(object):
 
         for child in self.math_tree[3]:  # Run for each region containing math or text
             self.i += 1  # Update counter
-            print("\nTried to parse region", self.i)  # Line separator for ouput
+            print("\nTrying to parse region", self.i)  # Line separator for ouput
 
             try:  # Try to parse
                 # ToDo: Smart align, that check for next region, if it's text or not
