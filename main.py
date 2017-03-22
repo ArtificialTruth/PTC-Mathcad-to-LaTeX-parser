@@ -256,7 +256,6 @@ class MathcadXMLParser(object):
 
                             if bool(text_object) is True:
                                 if bool(text_object[0]) is False:  # Check if the element have a <sp/> child
-                                    print("spaces?", text_object[0].text)
                                     if i2 <= len(elem):
                                         text += text_object[0].text + " \\\\\n"  # The <inlineAttr> text
                                     else:
@@ -289,7 +288,6 @@ class MathcadXMLParser(object):
                                     text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\"
 
                             elif bool(text_object) is True:
-                                print("spaces?", text_object[0].text)
                                 if bool(text_object[0]) is False:  # The element don't have children
                                     if i2 <= len(elem):
                                         text += text_object[0].text + " \\\\\n"  # The <inlineAttr> text
@@ -298,7 +296,6 @@ class MathcadXMLParser(object):
                                 else:  # The element has a <sp/> child
                                     text += " "
 
-                    print(text_object)
 
             elif bool(paragraph) is False:
                 if i <= len(elem):  # For every paragraph that isn't the last
