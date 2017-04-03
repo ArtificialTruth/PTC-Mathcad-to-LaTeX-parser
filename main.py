@@ -401,7 +401,8 @@ class MathcadXMLParser(object):
                 return string
 
             elif operator == "apply":  # If one of the childs are just a piece of text, simply return a merged string
-                return x + y
+                # For now we assume that the parenthesis is required
+                return x + "(" + y + ")"
 
             elif operator == "integral":  # For integrals with limits
                 lim_a = self.math_reader(y[0])
