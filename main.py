@@ -413,6 +413,9 @@ class MathcadXMLParser(object):
             elif operator == "derivative":  # For n'te derivative notation
                 return "\\frac{d^" + y + "}{d" + self.math_reader(x[0]) + "^" + y + "}" + self.math_reader(x[1])
 
+            elif operator == "indexer":  # For subscripts 
+                return x + "_{" + y + "}"
+
             else:
                 return "Unhandled tag (y given) :("
                 
