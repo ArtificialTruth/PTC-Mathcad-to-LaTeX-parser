@@ -22,7 +22,8 @@ class ParseGUI(object):
         self.mainframe = Frame(master)  # Create a Frame child widget
         self.mainframe.pack()  # Make the widget visible
 
-        self.path = ''  # Define default path
+        self.path = ''  # Define default path for the .xmcd file
+        self.texfile_path = ''  # Define path for the .tex file
 
         self.name = Label(self.mainframe, text="Welcome to Mathcad to LaTeX converter")  # Create a static text label
         self.name.pack(side="top")  # Make the widget visible and define location
@@ -42,17 +43,26 @@ class ParseGUI(object):
         self.parse_file = Button(self.mainframe, text="Parse and save!", command=self.parse_file)  # Button for parsing
         self.parse_file.pack(side="right")
 
+        self.parse_file = Button(self.mainframe, text="Open LaTeX file", command=self.open_file)
+        self.parse_file.pack(side="right")
+
         self.select_file = Button(self.mainframe, text="Select file", command=self.select_file)  # Runs a class method
-        self.select_file.pack(side="left")
+        self.select_file.pack(side="right")
 
     def select_file(self):  # Method used for selecting a file
         self.path = askopenfilename()  # Display native os file dialog for choosing a file
         self.filename.set("Current selected file: " + os.path.basename(self.path))  # Change the dynamic variable
         self.status.set("Status: Not parsed")  # Set status
 
+    def open_file(self):  # Method used for opening the parsed LaTeX file
+        self.texfile_path = os.path.dirname(self.path) + '/ParsedLatexFile/' + os.path.splitext(os.path.basename(self.path))[0] + '.tex'
+        if self.status.get() == "Status: File tried parsed! Look under the folder \ParsedLatexFile !":
+            os.system("start " + "\"\" \"" + self.texfile_path + "\"")
+
     def parse_file(self):  # Method for parsing the chosen file
         # Make sure a file is selected and it is a Mathcad file before trying to parse it
         if self.filename.get() != 'Current selected file: none' and os.path.splitext(self.path)[1] == '.xmcd':
+            self.status.set("Status: Tring to parse... (most files takes a few seconds)")
             MathcadXMLParser(self.path)  # Call the MathcadXMLParser class with the path
             self.status.set("Status: File tried parsed! Look under the folder \ParsedLatexFile !")
         # Display a error message to the user
@@ -85,11 +95,12 @@ class MathcadXMLParser(object):
         self.ml = "{http://schemas.mathsoft.com/math30}"  # Variable for namespaces as URI, used in prefixes
         self.ws = "{http://schemas.mathsoft.com/worksheet30}"
 
-        if not os.path.exists('ParsedLatexFile'):  # If this folder doesn't exist
-            os.makedirs('ParsedLatexFile')  # Create it
+        self.output_folder = os.path.dirname(self.target_file) + "/ParsedLatexFile"
+        if not os.path.exists(self.output_folder):  # If this folder doesn't exist
+            os.makedirs(self.output_folder)  # Create it
 
         # Open a new tex file for writing. Encoding for Danish chars etc. Save in a folder
-        self.tex_file = io.open('ParsedLatexFile/' + self.filename + '.tex', 'w', encoding="utf-8")
+        self.tex_file = io.open(self.output_folder + "/" + self.filename + '.tex', 'w', encoding="utf-8")
 
         # Standard LaTeX document info as strings
         self.start_latex_doc = "\\documentclass[10pt,a4paper]{report}\n\\usepackage[utf8]{inputenc}\n" \
@@ -414,7 +425,7 @@ class MathcadXMLParser(object):
             elif operator == "derivative":  # For n'te derivative notation
                 return "\\frac{d^" + y + "}{d" + self.math_reader(x[0]) + "^" + y + "}" + self.math_reader(x[1])
 
-            elif operator == "indexer":  # For subscripts 
+            elif operator == "indexer":  # For subscripts
                 return x + "_{" + y + "}"
 
             else:
