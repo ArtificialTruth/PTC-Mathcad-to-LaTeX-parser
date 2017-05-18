@@ -122,7 +122,7 @@ class MathcadXMLParser(object):
         
         This method is used for reading the XML file (the ElementTree).
         Generally speaking this method gathers the data, the
-        latex_formatter method needs, in order to format the data into LaTeX.
+        latex_formatter method uses to format the data into LaTeX.
         Recursive method for efficiency and simplicity.
         
         This method is used for math Mathcad regions.
@@ -169,11 +169,15 @@ class MathcadXMLParser(object):
             return self.latex_formatter(elem.tag, self.math_reader(elem[0]))  # Only 1 value between parenteses
 
         # Current tag is some kind of equal sign
+        # Eval works like normal equal operator, if the result is not defined
+        # If there's a result
         elif elem.tag == "eval" or elem.tag == "define":
             if self.debug:
                 print("A type of equal expression found.")
-            # Eval works like normal equal operator
-            return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
+            if elem[1].tag != self.ml + "unitOverride":
+                return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
+            else:
+                return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[2]))
 
         elif elem.tag == "provenance":  # Interesting Mathcad structure handled here
             return self.math_reader(elem[len(elem)-1])  # Simply call this method again with the last child element
@@ -193,7 +197,20 @@ class MathcadXMLParser(object):
         elif elem.tag == "result" or elem.tag == "boundVars" or elem.tag == "degree":
             if self.debug:
                 print("Result found.")
-            return elem[0].text  # Simply return the value as string
+            return self.math_reader(elem[0])
+            #return elem[0][0].text  # Simply return the value as string
+
+        elif elem.tag == "unitedValue":  # Value combined with a unit
+            if self.debug:
+                print("unitedValue (result value) found.")
+            return self.math_reader(elem[0]) + self.math_reader(elem[1])
+
+        elif elem.tag == "{http://schemas.mathsoft.com/units10}unitMonomial":
+            # For now, just return the full unit name.
+            # ToDo: Write library to convert unit names to short versions
+            if self.debug:
+                print("Unit found")
+            return elem[0].attrib["unit"]
 
         elif elem.tag == "vectorize":  # Current tag is a vector notation
             if self.debug:
@@ -228,6 +245,7 @@ class MathcadXMLParser(object):
             # bounds is used for integral with limits
             # Therefore the latex_formatter must handle it, we can't go backwards in elements?
             return elem
+
 
         else:  # For unsupported tags
             print("Error, non-supported tag found at region", self.i)  # Print the problematic region number
@@ -476,10 +494,12 @@ class MathcadXMLParser(object):
 
         for child in self.math_tree[3]:  # Run for each region containing math or text
             self.i += 1  # Update counter
-            print("\nTrying to parse region", self.i)  # Line separator for ouput
+            print("\nTrying to parse the " + str(self.i) + "' region")  # Line separator for ouput
+            # ToDo: Print the actual region-id
+            # print("(region-id: " + child[0].attr["region-id"] + ")")
 
             try:  # Try to parse
-                # ToDo: Smart align, that check for next region, if it's text or not
+                # ToDo: Smart align, that check for next region, if it's text or not?
                 if child[0].tag == self.ws + "math":  # Math region
                     if self.debug:
                         print("Type: Math region.")
