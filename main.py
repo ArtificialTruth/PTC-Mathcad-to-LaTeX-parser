@@ -123,6 +123,7 @@ class MathcadXMLParser(object):
         This method is used for reading the XML file (the ElementTree).
         Generally speaking this method gathers the data, the
         latex_formatter method uses to format the data into LaTeX.
+        So no LaTeX-specific formatting is done in this method.
         Recursive method for efficiency and simplicity.
         
         This method is used for math Mathcad regions.
@@ -169,15 +170,22 @@ class MathcadXMLParser(object):
             return self.latex_formatter(elem.tag, self.math_reader(elem[0]))  # Only 1 value between parenteses
 
         # Current tag is some kind of equal sign
-        # Eval works like normal equal operator, if the result is not defined
-        # If there's a result
-        elif elem.tag == "eval" or elem.tag == "define":
+        elif elem.tag == "define" or elem.tag == "symEval":
             if self.debug:
                 print("A type of equal expression found.")
-            if elem[1].tag != self.ml + "unitOverride":
+            return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
+
+        # Eval works like normal equal operator, if the result is not defined using "define"
+        # ToDo: add a way to handle non-user defined units in the result, and possibly add library to format to LaTeX?
+        elif elem.tag == "eval":
+            # Either the evaluated expression doesn't have a user defined unit in the result
+            if len(elem) == 2:
                 return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
-            else:
-                return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[2]))
+
+            # Or it does, and we can use that as the unit
+            elif len(elem) == 3:
+                value_and_unit = self.math_reader(elem[2]) + self.math_reader(elem[1])
+                return self.latex_formatter(elem.tag, self.math_reader(elem[0]), value_and_unit)
 
         elif elem.tag == "provenance":  # Interesting Mathcad structure handled here
             return self.math_reader(elem[len(elem)-1])  # Simply call this method again with the last child element
@@ -194,23 +202,12 @@ class MathcadXMLParser(object):
 
         # Result is used with equal signs, boundVars is used for special variables
         # degree is used for n'te degree derivatives
-        elif elem.tag == "result" or elem.tag == "boundVars" or elem.tag == "degree":
+        # symResult is a result from a symbolic evaluation
+        elif elem.tag == "result" or elem.tag == "boundVars" or elem.tag == "degree" or elem.tag == "symResult":
             if self.debug:
                 print("Result found.")
             return self.math_reader(elem[0])
-            #return elem[0][0].text  # Simply return the value as string
-
-        elif elem.tag == "unitedValue":  # Value combined with a unit
-            if self.debug:
-                print("unitedValue (result value) found.")
-            return self.math_reader(elem[0]) + self.math_reader(elem[1])
-
-        elif elem.tag == "{http://schemas.mathsoft.com/units10}unitMonomial":
-            # For now, just return the full unit name.
-            # ToDo: Write library to convert unit names to short versions
-            if self.debug:
-                print("Unit found")
-            return elem[0].attrib["unit"]
+            # return elem[0][0].text  # Simply return the value as string
 
         elif elem.tag == "vectorize":  # Current tag is a vector notation
             if self.debug:
@@ -246,6 +243,15 @@ class MathcadXMLParser(object):
             # Therefore the latex_formatter must handle it, we can't go backwards in elements?
             return elem
 
+        elif elem.tag == "unitedValue" or elem.tag == "unitOverride":  # Value and/or unit
+            if self.debug:
+                print("Unit stuff found.")
+            return self.math_reader(elem[0])
+
+        elif elem.tag == "function":
+            if self.debug:
+                print("Function found.")
+            return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
 
         else:  # For unsupported tags
             print("Error, non-supported tag found at region", self.i)  # Print the problematic region number
@@ -325,7 +331,6 @@ class MathcadXMLParser(object):
                                 else:  # The element has a <sp/> child
                                     text += " "
 
-
             elif bool(paragraph) is False:
                 if i <= len(elem):  # For every paragraph that isn't the last
                     text += paragraph.text + " \\\\\n"
@@ -345,12 +350,13 @@ class MathcadXMLParser(object):
         image_base64_data = self.math_tree[4][image_id-1].text  # Find the image data in the binaryContent part
         image_base64_data = image_base64_data.encode(encoding='UTF-8')  # Encode string as bytes instead
         filename = self.filename + "_" + str(image_id) + ".png"
+        filename_no_ext = self.filename + "_" + str(image_id)
 
         # Open a new file for writing, name it the filename_id
-        with open("ParsedLatexFile/" + filename, "wb") as imagefile:  # Open the file, and close it afterwards
+        with open(self.output_folder + "/" + filename, "wb") as imagefile:  # Open the file, and close it afterwards
             imagefile.write(base64.decodebytes(image_base64_data))  # Write the decoded base64 bytes to the file
 
-        return "\\includegraphics{" + filename + "}"
+        return "\\includegraphics{\"" + filename_no_ext + "\"}"
 
     def latex_formatter(self, operator, x, y=None):  # Define the value of y
         """LaTeX math syntax formatter metod
@@ -381,7 +387,7 @@ class MathcadXMLParser(object):
             elif operator == "div":
                 return "\\frac{" + x + "}{" + y + "}"  # Double dash due to escape charecters in Python
 
-            elif operator == "eval" or operator == "equal" or operator == "define":
+            elif operator == "eval" or operator == "equal" or operator == "define" or operator == "symEval":
                 return x + " = " + y
 
             elif operator == "pow":
@@ -429,9 +435,10 @@ class MathcadXMLParser(object):
                 string += "\\end{pmatrix}"
                 return string
 
-            elif operator == "apply":  # If one of the childs are just a piece of text, simply return a merged string
+            # Return two strings that needs to be merged
+            elif operator == "apply" or operator == "function":
                 # For now we assume that the parenthesis is required
-                return x + "(" + y + ")"
+                return x + "\\left(" + y + "\\right)"
 
             elif operator == "integral":  # For integrals with limits
                 lim_a = self.math_reader(y[0])
