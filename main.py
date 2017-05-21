@@ -302,9 +302,9 @@ class MathcadXMLParser(object):
                             else:
                                 if i2 <= len(elem):  # For every paragraph that isn't the last
                                     # family="Mathcad UniMath" symbols
-                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\\n"
+                                    text += symbol_parser(text_object.text, False) + " \\\\\n"
                                 else:
-                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\"
+                                    text += symbol_parser(text_object.text, False) + " \\\\"
 
                     # Or it doesn't have a region with math.
                     else:
@@ -318,9 +318,9 @@ class MathcadXMLParser(object):
                             if bool(text_object) is False:  # Check if the element don't have children
                                 if i2 <= len(elem):  # For every paragraph that isn't the last
                                     # family="Mathcad UniMath" symbols
-                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\\n"
+                                    text += symbol_parser(text_object.text, False) + " \\\\\n"
                                 else:
-                                    text += "$ " + symbol_parser(text_object.text) + " $" + " \\\\"
+                                    text += symbol_parser(text_object.text, False) + " \\\\"
 
                             elif bool(text_object) is True:
                                 if bool(text_object[0]) is False:  # The element don't have children
@@ -337,7 +337,7 @@ class MathcadXMLParser(object):
                 else:  # For the last paragraph (no newline)
                     text += paragraph.text + " \\\\"
 
-        return text
+        return symbol_parser(text, False)
 
     def picture_reader(self, elem):
         """Method for reading binary picture data
@@ -462,9 +462,9 @@ class MathcadXMLParser(object):
 
             if operator == "id":
                 if x.get("subscript") is not None:  # Checks if the attribute exists
-                    return symbol_parser(x.text) + "_{" + x.attrib["subscript"] + "}"  # Find the attribute subscript
+                    return symbol_parser(x.text, True) + "_{" + x.attrib["subscript"] + "}"  # Find the attribute subscript
                 else:
-                    return symbol_parser(x.text)
+                    return symbol_parser(x.text, True)
 
             if operator == "parens":
                 return "\\left(" + x + "\\right)"
@@ -511,7 +511,7 @@ class MathcadXMLParser(object):
                     if self.debug:
                         print("Type: Math region.")
                     # Write result of the region by calling fuction which sends the current element
-                    self.tex_file.write("\\begin{align}\n" + self.math_reader(child[0][0]) + "\n\\end{align}\\\\\n")
+                    self.tex_file.write("\\begin{align}\n" + self.math_reader(child[0][0]) + "\n\\end{align}\\\\\n\n")
 
                 elif child[0].tag == self.ws + "text":  # Handle pure text regions
                     if self.debug:
