@@ -2,8 +2,8 @@
 A Python 3.x application to read PTC Mathcad 15 files and output them as LaTeX files.  
 Doesn't fully work with everything yet. I've mainly added support for the math I use myself.  
 Only tested on Mathcad 15 *.xmcd* files, the structure is probably different for other versions?
-This program is distributed under the terms of the GNU General Public License.  
-https://www.gnu.org/licenses/gpl.html
+[![Creative Commons License](https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png)](http://creativecommons.org/licenses/by-nc-sa/4.0/)  
+This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 ## Quick (and dirty) guide
 1. Install Anaconda for Python 3.x at https://www.continuum.io/downloads
