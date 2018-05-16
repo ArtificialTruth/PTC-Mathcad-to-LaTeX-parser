@@ -8,7 +8,7 @@ https://www.gnu.org/licenses/gpl.html
 ## Quick (and dirty) guide
 1. Install Anaconda for Python 3.x at https://www.continuum.io/downloads
 2. Reboot?
-3. Git clone (Download all files)
+3. Git clone this repository (Download all files)
 4. Doubleclick main.py (or run the file from shell)
 5. Click some buttons in the GUI
 6. Pray that all your desired math is supported
