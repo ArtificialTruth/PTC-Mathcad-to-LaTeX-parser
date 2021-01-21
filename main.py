@@ -14,6 +14,7 @@ class ParseGUI(object):
     """Class used for the GUI
     The object parameter is the root widget for the Tkinter GUI
     """
+
     def __init__(self, master):
         """Constructor method
 
@@ -55,7 +56,8 @@ class ParseGUI(object):
         self.status.set("Status: Not parsed")  # Set status
 
     def open_file(self):  # Method used for opening the parsed LaTeX file
-        self.texfile_path = os.path.dirname(self.path) + '/ParsedLatexFile/' + os.path.splitext(os.path.basename(self.path))[0] + '.tex'
+        self.texfile_path = os.path.dirname(self.path) + '/ParsedLatexFile/' + \
+                            os.path.splitext(os.path.basename(self.path))[0] + '.tex'
         if self.status.get() == "Status: File tried parsed! Look under the folder \ParsedLatexFile !":
             os.system("start " + "\"\" \"" + self.texfile_path + "\"")
 
@@ -76,11 +78,13 @@ class MathcadXMLParser(object):
     Parses the results from the file reading and saving it
     Takes in a object (the file path)
     """
+
     def __init__(self, filename):
         """The constructor method
 
         :param filename: A path to the targeted file
         """
+
         self.target_file = filename  # Define the filename as a class variable
         self.filename = os.path.basename(self.target_file).replace('.xmcd', '')  # Get the file name, remove extension
         math_tree_ok = True  # As a starting point, the file is ok
@@ -106,13 +110,14 @@ class MathcadXMLParser(object):
         self.start_latex_doc = "\\documentclass[10pt,a4paper]{report}\n\\usepackage[utf8]{inputenc}\n" \
                                "\\usepackage[T1]{fontenc}\n\\usepackage{amsmath}\n\\usepackage{amsfonts}\n" \
                                "\\usepackage{amssymb}\n\\usepackage{graphicx}\n\\begin{document}\n\\noindent\n"
-        self.end_latex_doc = "\end{document}"
+
+        self.end_latex_doc = "\\end{document}"
 
         self.matrix_array = []  # Array to use for multiple values in matrixes
 
-        self.i = 0  # Counter
+        self.current_region_no = 0  # To keep track of regions in mathcad file, as they are being read
 
-        self.debug = False  # Toggle debug messages
+        self.debug = True  # Toggle debug messages
 
         if math_tree_ok:  # Only run if file isn't corrupted
             self.main()  # Run main method
@@ -135,8 +140,7 @@ class MathcadXMLParser(object):
         if elem.tag == "apply":  # If current Element's tag is apply
             # We need two cases; One for apply tag which includes a operator, and everything else
             # The first will always be the operator, if there's one
-            if self.debug:  # Only prints debug messages if debug = True
-                print("Apply tag found")
+            if self.debug: print("Apply tag found")
 
             # Either there's a operator (2 or 3 childs, first element is always the operator)
             if bool(elem[0]) is False and elem[0].text is None:  # Checks if the elem has children and doesn't have text
@@ -152,8 +156,7 @@ class MathcadXMLParser(object):
                     return self.latex_formatter(elem[0].tag, val1, val2)  # Sends the operator and the two values
 
                 elif len(elem) == 2:  # Used for other operators where there's only "two" parts
-                    if self.debug:
-                        print("len(elem)", len(elem))
+                    if self.debug: print("len(elem)", len(elem))
                     val1 = self.math_reader(elem[1])  # Call this method again, skip the operator tag elem
                     return self.latex_formatter(elem[0].tag, val1)  # Get first child's tag which is the operator
 
@@ -171,8 +174,7 @@ class MathcadXMLParser(object):
 
         # Current tag is some kind of equal sign
         elif elem.tag == "define" or elem.tag == "symEval":
-            if self.debug:
-                print("A type of equal expression found.")
+            if self.debug: print("A type of equal expression found.")
             return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
 
         # Eval works like normal equal operator, if the result is not defined using "define"
@@ -188,35 +190,30 @@ class MathcadXMLParser(object):
                 return self.latex_formatter(elem.tag, self.math_reader(elem[0]), value_and_unit)
 
         elif elem.tag == "provenance":  # Interesting Mathcad structure handled here
-            return self.math_reader(elem[len(elem)-1])  # Simply call this method again with the last child element
+            return self.math_reader(elem[len(elem) - 1])  # Simply call this method again with the last child element
 
         elif elem.tag == "id":  # Current tag is pure text
-            if self.debug:
-                print("Text found:", elem.text)
+            if self.debug: print("Text found:", elem.text)
             return self.latex_formatter(elem.tag, elem)  # Call external function with text
 
         elif elem.tag == "real":  # Current is a real number
-            if self.debug:
-                print("Number found:", elem.text)
+            if self.debug: print("Number found:", elem.text)
             return elem.text  # Simply return the value as string
 
         # Result is used with equal signs, boundVars is used for special variables
         # degree is used for n'te degree derivatives
         # symResult is a result from a symbolic evaluation
         elif elem.tag == "result" or elem.tag == "boundVars" or elem.tag == "degree" or elem.tag == "symResult":
-            if self.debug:
-                print("Result found.")
+            if self.debug: print("Result found.")
             return self.math_reader(elem[0])
             # return elem[0][0].text  # Simply return the value as string
 
         elif elem.tag == "vectorize":  # Current tag is a vector notation
-            if self.debug:
-                print("Vector found.")
+            if self.debug: print("Vector found.")
             return self.latex_formatter(elem.tag, self.math_reader(elem[0]))
 
         elif elem.tag == "matrix":  # Currrent tag is a matrix
-            if self.debug:
-                print("Matrix found.")
+            if self.debug: print("Matrix found.")
 
             # Run through every entity in the matrix, and add it to a list
             for entity in elem:
@@ -231,7 +228,7 @@ class MathcadXMLParser(object):
 
             self.matrix_array = []  # Reset matrix array
             return self.latex_formatter(elem.tag, numpy_matrix_array, array_dimensions)  # Send array and the dimensons
-            
+
         elif elem.tag == "placeholder":  # Current tag is just a placeholder
             if self.debug:
                 print("Empty placeholder found.")
@@ -254,90 +251,128 @@ class MathcadXMLParser(object):
             return self.latex_formatter(elem.tag, self.math_reader(elem[0]), self.math_reader(elem[1]))
 
         else:  # For unsupported tags
-            print("Error, non-supported tag found at region", self.i)  # Print the problematic region number
+            print("Error, non-supported tag found at region",
+                  self.current_region_no)  # Print the problematic region number
             print("Current Elem.tag:", elem.tag)  # Debug message
 
     def text_reader(self, elem):
-        """Pure text formatter method
-
-        This method is used for text Mathcad regions.
-        :param elem: The ElementTree that contains text
-        :param special_char:
+        """Parses Mathcad text regions paragraph by paragraph.
+        It loops through each paragraph, and add new
+        :param elem: The ElementTree that contains text, structure: <text> ... </text>
         :return: Formatted text with escape chars
         """
-        text = ""  # Set default values
-        i = 1
-        i2 = 1
+        text = ""  # Variable to store found text
 
         if self.debug:
             print("Type: Text region.")
 
-        for paragraph in elem:  # For each paragraph, in the text region
-            i += 1
-            if bool(paragraph) is True:  # Check if the paragraph has children
-                i2 += 1
-                for text_object in paragraph:  # Run through every item in the tree
+        # For each paragraph <p>...</p>, in the text "element" object:  <text> ... </text>
+        for i, paragraph in enumerate(elem, start=1):
 
-                    """ToDo: Don't add newlines in this forloop (unless there's only 1 child in paragraph), just add
-                    # the things in one long ass line"""
-                    # To handle the "f" element that should be on the same line as the inline math, we have two cases.
-                    # Either the element has a "region" with math
-                    if paragraph.find(self.ws + "region") is not None:
-                        if text_object.tag == self.ws + "region":
-                            text += paragraph.text  # Grap the text infront of the inline math
-                            text += " $ " + self.math_reader(paragraph[0][0][0]) + " $ "
+            # Add text from start of paragraph
+            if paragraph.text is not None and ("\t" not in paragraph.text):
+                text += paragraph.text
 
-                        elif text_object.tag == self.ws + "f":
+            # If paragraph has children (can be multiple lines of text, math region, or bold/italic etc text)
+            text += self.text_piece_formatter(paragraph)
 
-                            if bool(text_object) is True:
-                                if bool(text_object[0]) is False:  # Check if the element have a <sp/> child
-                                    if i2 <= len(elem):
-                                        text += text_object[0].text + " \\\\\n"  # The <inlineAttr> text
-                                    else:
-                                        text += text_object[0].text + " \\\\"
+            # Add tailing text for paragraph
+            if (paragraph.tail is not None) and ("\t" not in paragraph.tail):
+                text += paragraph.tail
 
-                                elif bool(text_object[0]) is True:  # The element has a <sp/> child
-                                    text += " \n"
+            # Add newline after every paragraph that isn't the last
+            if i <= len(elem):
+                text += " \\\\\n"
 
-                            else:
-                                if i2 <= len(elem):  # For every paragraph that isn't the last
-                                    # family="Mathcad UniMath" symbols
-                                    text += symbol_parser(text_object.text, False) + " \\\\\n"
-                                else:
-                                    text += symbol_parser(text_object.text, False) + " \\\\"
+            # For the last paragraph (no newline)
+            else:
+                text += " \\\\"
 
-                    # Or it doesn't have a region with math.
-                    else:
-                        """
-                        if text_object.tag == self.ws + "region":
-                            text += paragraph.text  # Grap the text infront of the inline math
-                            text += " $ " + self.math_reader(paragraph[0][0][0]) + " $ "
-                        """
-                        if text_object.tag == self.ws + "f":
-
-                            if bool(text_object) is False:  # Check if the element don't have children
-                                if i2 <= len(elem):  # For every paragraph that isn't the last
-                                    # family="Mathcad UniMath" symbols
-                                    text += symbol_parser(text_object.text, False) + " \\\\\n"
-                                else:
-                                    text += symbol_parser(text_object.text, False) + " \\\\"
-
-                            elif bool(text_object) is True:
-                                if bool(text_object[0]) is False:  # The element don't have children
-                                    if i2 <= len(elem):
-                                        text += text_object[0].text + " \\\\\n"  # The <inlineAttr> text
-                                    else:
-                                        text += text_object[0].text + " \\\\"
-                                else:  # The element has a <sp/> child
-                                    text += " "
-
-            elif bool(paragraph) is False:
-                if i <= len(elem):  # For every paragraph that isn't the last
-                    text += paragraph.text + " \\\\\n"
-                else:  # For the last paragraph (no newline)
-                    text += paragraph.text + " \\\\"
-
+        # Make sure symbols are parsed correctly
         return symbol_parser(text, False)
+
+    def text_piece_formatter(self, paragraph_elem):
+        """Method to handle pieces of text in a paragraph.
+        Can be boldface, italic etc, with different combinations of these
+        We use depth first search to find text and format it using latex syntax.
+
+        :param paragraph_elem: The ElementTree that contains a line of text to format
+        :return: String with formatted using LaTeX syntax"""
+
+        # String to store our text
+        text = ""
+
+        # Mapping from Mathcad xml tags to latex
+        emphasis_latex = {
+            "b": "\\textbf",
+            "i": "\\textit",
+            "u": "\\underline",
+            "sup": "\\textsuperscript"
+        }
+
+
+        # Loop through each piece of text in the paragraph. The order of below if statments follows mathcad structure
+        for text_piece in paragraph_elem:
+            # Remove self.ws from tag for easier lookup
+            current_emphasis_tag = text_piece.tag.replace(self.ws, "")
+
+            # Check if current tag is a emphasis formatting tag recognized in LaTeX
+            if current_emphasis_tag in emphasis_latex:
+                # Add start of latex formatting tag. Remove self.ws to lookup in our dict
+                text += emphasis_latex[current_emphasis_tag] + "{"
+
+            # Check if there's text to grab, if yes, add it to the string
+            if text_piece.text is not None:
+
+                # Check text is not only tab charecters
+                if "\t" not in text_piece.text:
+                    text += text_piece.text
+
+            # If the tag is "region" then we have found a math region
+            if current_emphasis_tag == "region":
+
+                # Call math_reader to format the math
+                text += " $ " + self.math_reader(text_piece[0][0]) + " $ "
+
+                # Add tailing text, if it exists, not if it's just tab (\t)
+                if (text_piece.tail is not None) and ("\t" not in text_piece.tail):
+                    text += text_piece.tail
+
+                # Skip sibling tags since they are handled with above code
+                continue
+
+            # Add <sp>(ace) charecters in mid-sentences specified by attribute "count" for tag
+            if current_emphasis_tag == "sp":
+
+                # Check if "count" attribute (key) exists
+                if "count" in text_piece.attrib:
+                    number_of_spaces = int(text_piece.attrib["count"])
+
+                # If there's no attribute, there's only one space
+                else:
+                    number_of_spaces = 1
+
+                text += " " * number_of_spaces
+
+            # Go deeper if possible
+            # If theres children, there's no text to grap, we need to go a level deeper to find text
+            # (Check if text_piece has children which occurs using nested-formatting (eg __**bold&underlined**__))
+            # The "f" tag is used for specificng fonts in mathcad, but we don't care about font went exporting to LaTeX
+            if bool(text_piece):
+                # Go one level deeper in the tree
+                text += self.text_piece_formatter(text_piece)
+
+            # Add the last part of LaTeX formatting
+            if current_emphasis_tag in emphasis_latex:
+                # Add text and end of latex formatting tag }
+                text += "}"
+
+            # Add tailing text, if it exists, not if it's just tab (\t)
+            if (text_piece.tail is not None) and ("\t" not in text_piece.tail):
+                text += text_piece.tail
+
+
+        return text
 
     def picture_reader(self, elem):
         """Method for reading binary picture data
@@ -347,7 +382,7 @@ class MathcadXMLParser(object):
         :return: The LaTeX code including the image file
         """
         image_id = int(elem[0].attrib["item-idref"])  # Grap the image ID from the elements attributes
-        image_base64_data = self.math_tree[4][image_id-1].text  # Find the image data in the binaryContent part
+        image_base64_data = self.math_tree[4][image_id - 1].text  # Find the image data in the binaryContent part
         image_base64_data = image_base64_data.encode(encoding='UTF-8')  # Encode string as bytes instead
         filename = self.filename + "_" + str(image_id) + ".png"
         filename_no_ext = self.filename + "_" + str(image_id)
@@ -371,48 +406,38 @@ class MathcadXMLParser(object):
         """
         operator = operator.replace(self.ml, "")  # Remove prefix from operator
 
-        if y is not None:  # Is y given?
-            if self.debug:
-                print("y given")
+        operators_mathcad_tag_to_latex = {
+            'plus': "{x} + {y}",
+            'minus': "{x} - {y}",
+            'mult': "{x} \\cdot {y}",
+            'div': "\\frac{{{x}}}{{{y}}}",
+            'eval': '{x} = {y}',
+            'equal': '{x} = {y}',
+            'define': '{x} = {y}',
+            'symEval': '{x} = {y}',
+            'pow': '{x}^{{{y}}}',
+            'nthRoot': "\\sqrt[{x}]{{{y}}}",
+            'lessThan': '{x} < {y}',
+            'greaterThan': '{x} > {y}',
+            'lessOrEqual': '{x} \\leq {y}',
+            'greaterOrEqual': '{x} \\geq {y}',
+            'and': '{x} \\land {y}',
+            'or': '{x} \\lor {y}',
+            'apply': '{x}\\left({y}\\right)',  # Return two strings that needs to be merged
+            'function': '{x}\\left({y}\\right)',
+            'indexer': '{x}_{{{y}}}',
+            'parens': '\\left({x}\\right)',
+            'sqrt': '\\sqrt{{{x}}}',  # Latex output: \sqrt{x} double {{ to esc
+            'absval': '\\left|{x}\\right|',
+            'neg': '-{x}',
+            'vectorize': '\\vec{{{x}}}'
+        }
 
-            if operator == "plus":  # Format into LaTeX expressions
-                return x + " + " + y
+        if y is not None:  # y exists, so there's two components to parse
+            if self.debug: print("y given")
 
-            elif operator == "minus":
-                return x + " - " + y
-
-            elif operator == "mult":
-                return x + " \cdot " + y
-
-            elif operator == "div":
-                return "\\frac{" + x + "}{" + y + "}"  # Double dash due to escape charecters in Python
-
-            elif operator == "eval" or operator == "equal" or operator == "define" or operator == "symEval":
-                return x + " = " + y
-
-            elif operator == "pow":
-                return x + "^" + "{" + y + "}"
-
-            elif operator == "nthRoot":
-                return "\\sqrt[" + x + "]{" + y + "}"
-
-            elif operator == "lessThan":
-                return x + " < " + y
-
-            elif operator == "greaterThan":
-                return x + " > " + y
-
-            elif operator == "lessOrEqual":
-                return x + " \\leq " + y
-
-            elif operator == "greaterOrEqual":
-                return x + " \\geq " + y
-
-            elif operator == "and":
-                return x + " \\land " + y
-
-            elif operator == "or":
-                return x + " \\lor " + y
+            if operator in operators_mathcad_tag_to_latex:
+                return operators_mathcad_tag_to_latex[operator].format(x=x, y=y)
 
             elif operator == "matrix":
                 string = "\\begin{pmatrix}\n"
@@ -435,11 +460,6 @@ class MathcadXMLParser(object):
                 string += "\\end{pmatrix}"
                 return string
 
-            # Return two strings that needs to be merged
-            elif operator == "apply" or operator == "function":
-                # For now we assume that the parenthesis is required
-                return x + "\\left(" + y + "\\right)"
-
             elif operator == "integral":  # For integrals with limits
                 lim_a = self.math_reader(y[0])
                 lim_b = self.math_reader(y[1])
@@ -450,36 +470,28 @@ class MathcadXMLParser(object):
             elif operator == "derivative":  # For n'te derivative notation
                 return "\\frac{d^" + y + "}{d" + self.math_reader(x[0]) + "^" + y + "}" + self.math_reader(x[1])
 
-            elif operator == "indexer":  # For subscripts
-                return x + "_{" + y + "}"
-
             else:
                 return "Unhandled tag (y given) :("
-                
+
         else:  # Else, there is only 1 value
-            if self.debug:
-                print("No y given")
+            if self.debug: print("No y given")
+
+            if operator in operators_mathcad_tag_to_latex:
+                print(operators_mathcad_tag_to_latex[operator].format(x=x))
+                return operators_mathcad_tag_to_latex[operator].format(x=x)
 
             if operator == "id":
-                if x.get("subscript") is not None:  # Checks if the attribute exists
-                    return symbol_parser(x.text, True) + "_{" + x.attrib["subscript"] + "}"  # Find the attribute subscript
+                # Make sure subscript attribute exists
+                if x.get("subscript") is not None:
+
+                    upper_text = symbol_parser(x.text, True)
+
+                    # Get attribute's values and send to symbol_parser 
+                    sub_text = symbol_parser(x.attrib["subscript"], True)
+
+                    return upper_text + "_{" + sub_text + "}"
                 else:
                     return symbol_parser(x.text, True)
-
-            if operator == "parens":
-                return "\\left(" + x + "\\right)"
-
-            elif operator == "sqrt":
-                return "\\sqrt{" + x + "}"
-
-            elif operator == "absval":
-                return "\\left|" + x + "\\right|"
-
-            elif operator == "neg":
-                return "-" + x
-
-            elif operator == "vectorize":
-                return "\\vec{" + x + "}"
 
             elif operator == "derivative":  # For derivative notation
                 return "\\frac{d}{d" + self.math_reader(x[0]) + "}" + self.math_reader(x[1])
@@ -500,31 +512,29 @@ class MathcadXMLParser(object):
         self.tex_file.write(self.start_latex_doc)  # Write start of LaTeX document
 
         for child in self.math_tree[3]:  # Run for each region containing math or text
-            self.i += 1  # Update counter
-            print("\nTrying to parse the " + str(self.i) + "' region")  # Line separator for ouput
+            self.current_region_no += 1  # Update counter
+            print("\nTrying to parse the " + str(self.current_region_no) + "' region")  # Line separator for ouput
             # ToDo: Print the actual region-id
             # print("(region-id: " + child[0].attr["region-id"] + ")")
 
             try:  # Try to parse
                 # ToDo: Smart align, that check for next region, if it's text or not?
                 if child[0].tag == self.ws + "math":  # Math region
-                    if self.debug:
-                        print("Type: Math region.")
+                    if self.debug: print("Type: Math region.")
                     # Write result of the region by calling fuction which sends the current element
                     self.tex_file.write("\\begin{align}\n" + self.math_reader(child[0][0]) + "\n\\end{align}\\\\\n\n")
 
                 elif child[0].tag == self.ws + "text":  # Handle pure text regions
-                    if self.debug:
-                        print("Type: Text region.")
+                    if self.debug: print("Type: Text region.")
                     self.tex_file.write(self.text_reader(child[0]) + "\n")
 
                 elif child[0].tag == self.ws + "picture":  # Handle pure picture regions
-                    if self.debug:
-                        print("Type: Picture region.")
+                    if self.debug: print("Type: Picture region.")
                     self.tex_file.write(self.picture_reader(child[0]) + "\\\\\n")
 
-            except TypeError:  # Catch the most common error
-                print("Unsupported expessions found OR error occured, could not parse region", self.i)
+            # Catch the most common error
+            except TypeError as e:
+                print("Unsupported expessions found OR error occured, could not parse region", self.current_region_no, "Error:", str(e))
 
         self.tex_file.write(self.end_latex_doc)  # Write end of LaTeX document
 
