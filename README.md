@@ -6,8 +6,8 @@ Only tested on Mathcad 15 *.xmcd* files, the structure is probably different for
 This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-nc-sa/4.0/).
 [![Creative Commons License](https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png)](http://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-[![Creative Commons License](https://github.com/ArtificialTruth/PTC-Mathcad-to-LaTeX-parser/blob/master/Math%20in%20Mathcad15.png)]
-[![Creative Commons License](https://github.com/ArtificialTruth/PTC-Mathcad-to-LaTeX-parser/blob/master/Parsed%20to%20LaTeX.png)]
+![Creative Commons License](https://github.com/ArtificialTruth/PTC-Mathcad-to-LaTeX-parser/blob/master/Math%20in%20Mathcad15.png)
+![Creative Commons License](https://github.com/ArtificialTruth/PTC-Mathcad-to-LaTeX-parser/blob/master/Parsed%20to%20LaTeX.png)
 
 ## Quick (and dirty) guide
 1. Install Anaconda for Python 3.x at https://www.continuum.io/downloads
