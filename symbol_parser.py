@@ -23,29 +23,32 @@ symbol_dictionary = {'&amp;': '\\&',
                      '⇔': '\\Leftrightarrow ',
                      'ω': '\\omega',
                      'Ω': '\\Omega',
-                     '&': '\\&'}  # ToDo: Add more of these...
+                     '&': '\\&',
+                     'γ' : '\\gamma',
+                     'τ' : '\\tau',
+                     'σ' : '\\sigma'}  # ToDo: Add more of these...
 
 
-def symbol_parser(symbol, mathmode):
+def symbol_parser(str_with_symbols, mathmode):
     """Parses symbols into LaTeX symbols
 
-    :param symbol: A string which is the given symbol that needs to be checked
+    :param str_with_symbols: A string which is the given symbol that needs to be checked
     :return: Formatted LaTeX symbol or what was given
     """
-    if mathmode:
-        for key in symbol_dictionary:  # Check entire dictionary
+    if mathmode: # return the "pure" string
+        for unicode_symbol in symbol_dictionary:  # Check entire dictionary
             try:  # Try to replace the given symbol
-                symbol = symbol.replace(key, symbol_dictionary[key])
-            except KeyError:  # If it fails, just skip it
+                str_with_symbols = str_with_symbols.replace(unicode_symbol, symbol_dictionary[unicode_symbol])
+            except unicode_symbolError:  # If it fails, just skip it
                 pass
 
-        return symbol  # Return the parsed symbol
+        return str_with_symbols  # Return the parsed symbol
 
-    elif mathmode is False:
-        for key in symbol_dictionary:  # Check entire dictionary
+    elif mathmode is False: # return the parsed string with $ $ to create a LaTeX math mode region
+        for unicode_symbol in symbol_dictionary:  # Check entire dictionary
             try:  # Try to replace the given symbol
-                symbol = symbol.replace(key, "$" + symbol_dictionary[key] + "$")
-            except KeyError:  # If it fails, just skip it
+                str_with_symbols = str_with_symbols.replace(unicode_symbol, "$" + symbol_dictionary[unicode_symbol] + "$")
+            except unicode_symbolError:  # If it fails, just skip it
                 pass
 
-        return symbol  # Return the parsed symbol
+        return str_with_symbols  # Return the parsed symbol
